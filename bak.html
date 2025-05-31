@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenizer Comparison Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #34495e;
+            font-size: 1.1em;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tokenizer-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .tokenizer-toggle:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+
+        .tokenizer-toggle.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+        }
+
+        .tokenizer-toggle input[type="checkbox"] {
+            margin: 0;
+            transform: scale(1.2);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .tokenizer-result {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+
+        .tokenizer-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .token-count {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .tokens-display {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            line-height: 1.8;
+            word-wrap: break-word;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .token {
+            display: inline-block;
+            padding: 2px 6px;
+            margin: 1px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .token:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.9em;
+            color: #64748b;
+        }
+
+        .demo-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .demo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔤 Tokenizer Comparison Tool</h1>
+        
+        <div class="input-section">
+            <label class="input-label" for="textInput">Enter text to tokenize:</label>
+            <div class="demo-buttons">
+                <button class="demo-btn" onclick="loadDemo('Hello, world! How are you today?')">Simple Text</button>
+                <button class="demo-btn" onclick="loadDemo('The quick brown fox jumps over the lazy dog. This sentence contains various punctuation marks: commas, periods, and colons!')">Complex Text</button>
+                <button class="demo-btn" onclick="loadDemo('def fibonacci(n):\\n    if n <= 1:\\n        return n\\n    return fibonacci(n-1) + fibonacci(n-2)')">Code Example</button>
+                <button class="demo-btn" onclick="loadDemo('🚀 Emojis and special chars: café, naïve, résumé, 中文, العربية')">Unicode & Emojis</button>
+            </div>
+            <textarea 
+                id="textInput" 
+                class="text-input" 
+                rows="4" 
+                placeholder="Type or paste your text here..."
+                oninput="tokenizeText()"
+            >Hello, world! How are you today?</textarea>
+        </div>
+
+        <div class="controls">
+            <label class="tokenizer-toggle active">
+                <input type="checkbox" checked onchange="toggleTokenizer('gpt35')" id="gpt35">
+                <span>GPT-3.5 Turbo</span>
+            </label>
+            <label class="tokenizer-toggle active">
+                <input type="checkbox" checked onchange="toggleTokenizer('gpt4')" id="gpt4">
+                <span>GPT-4</span>
+            </label>
+            <label class="tokenizer-toggle active">
+                <input type="checkbox" checked onchange="toggleTokenizer('davinci')" id="davinci">
+                <span>Davinci</span>
+            </label>
+            <label class="tokenizer-toggle active">
+                <input type="checkbox" checked onchange="toggleTokenizer('llama2')" id="llama2">
+                <span>Llama 2</span>
+            </label>
+            <label class="tokenizer-toggle active">
+                <input type="checkbox" checked onchange="toggleTokenizer('claude')" id="claude">
+                <span>Claude</span>
+            </label>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+        </div>
+    </div>
+
+    <script>
+        // Simplified tokenizer implementations (approximations for demonstration)
+        const tokenizers = {
+            gpt35: {
+                name: "GPT-3.5 Turbo",
+                tokenize: function(text) {
+                    // Simplified GPT-3.5 tokenization approximation
+                    return text.split(/(\s+|[^\w\s])/g).filter(t => t.trim())
+                        .flatMap(token => {
+                            if (token.length > 4 && /^[a-zA-Z]+$/.test(token)) {
+                                return [token.slice(0, -2), token.slice(-2)];
+                            }
+                            return [token];
+                        });
+                },
+                colors: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd']
+            },
+            gpt4: {
+                name: "GPT-4",
+                tokenize: function(text) {
+                    // GPT-4 tends to have more efficient tokenization
+                    return text.split(/(\s+|[.!?;,:])/g).filter(t => t.trim())
+                        .flatMap(token => {
+                            if (token.length > 6 && /^[a-zA-Z]+$/.test(token)) {
+                                const mid = Math.floor(token.length / 2);
+                                return [token.slice(0, mid), token.slice(mid)];
+                            }
+                            return [token];
+                        });
+                },
+                colors: ['#a8e6cf', '#ffd3a5', '#fd9a85', '#c7ceea', '#b8e6b8', '#ffaaa5', '#c5d2ea', '#f4a261']
+            },
+            davinci: {
+                name: "Davinci",
+                tokenize: function(text) {
+                    // Older tokenization style - more splits
+                    return text.split(/(\s+|[^\w\s])/g).filter(t => t.trim())
+                        .flatMap(token => {
+                            if (token.length > 3 && /^[a-zA-Z]+$/.test(token)) {
+                                return token.split('').reduce((acc, char, i) => {
+                                    if (i % 2 === 0) acc.push(char);
+                                    else acc[acc.length - 1] += char;
+                                    return acc;
+                                }, []);
+                            }
+                            return [token];
+                        });
+                },
+                colors: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7']
+            },
+            llama2: {
+                name: "Llama 2",
+                tokenize: function(text) {
+                    // Llama-style tokenization
+                    return text.split(/(\s+)/g).filter(t => t.trim())
+                        .flatMap(token => {
+                            if (token.startsWith(' ')) return [token];
+                            if (token.length > 5 && /^[a-zA-Z]+$/.test(token)) {
+                                return ['▁' + token.slice(0, 3), token.slice(3)];
+                            }
+                            return ['▁' + token];
+                        });
+                },
+                colors: ['#ff7675', '#fd79a8', '#fdcb6e', '#6c5ce7', '#74b9ff', '#00b894', '#e17055', '#a29bfe']
+            },
+            claude: {
+                name: "Claude",
+                tokenize: function(text) {
+                    // Claude-style tokenization approximation
+                    return text.split(/(\s+|[.!?])/g).filter(t => t.trim())
+                        .flatMap(token => {
+                            if (/^[a-zA-Z]+$/.test(token) && token.length > 4) {
+                                const chunks = [];
+                                for (let i = 0; i < token.length; i += 3) {
+                                    chunks.push(token.slice(i, i + 3));
+                                }
+                                return chunks;
+                            }
+                            return [token];
+                        });
+                },
+                colors: ['#e056fd', '#686de0', '#30336b', '#130f40', '#7bed9f', '#70a1ff', '#5352ed', '#40407a']
+            }
+        };
+
+        let activeTokenizers = new Set(['gpt35', 'gpt4', 'davinci', 'llama2', 'claude']);
+
+        function loadDemo(text) {
+            document.getElementById('textInput').value = text;
+            tokenizeText();
+        }
+
+        function toggleTokenizer(tokenizerId) {
+            const checkbox = document.getElementById(tokenizerId);
+            const label = checkbox.parentElement;
+            
+            if (checkbox.checked) {
+                activeTokenizers.add(tokenizerId);
+                label.classList.add('active');
+            } else {
+                activeTokenizers.delete(tokenizerId);
+                label.classList.remove('active');
+            }
+            
+            tokenizeText();
+        }
+
+        function getTokenColor(tokenizer, index) {
+            return tokenizer.colors[index % tokenizer.colors.length];
+        }
+
+        function tokenizeText() {
+            const text = document.getElementById('textInput').value;
+            const resultsGrid = document.getElementById('resultsGrid');
+            
+            if (!text.trim()) {
+                resultsGrid.innerHTML = '<p style="text-align: center; color: #64748b; grid-column: 1/-1;">Enter some text to see tokenization results...</p>';
+                return;
+            }
+
+            resultsGrid.innerHTML = '';
+
+            activeTokenizers.forEach(tokenizerId => {
+                const tokenizer = tokenizers[tokenizerId];
+                const tokens = tokenizer.tokenize(text);
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'tokenizer-result';
+                
+                const tokensHtml = tokens.map((token, index) => {
+                    const color = getTokenColor(tokenizer, index);
+                    const displayToken = token.replace(/\s/g, '·').replace(/\n/g, '\\n');
+                    return `<span class="token" style="background-color: ${color}; color: ${getBestTextColor(color)}" title="Token ${index + 1}: '${token}'">${displayToken}</span>`;
+                }).join('');
+
+                const avgTokenLength = (tokens.reduce((sum, token) => sum + token.length, 0) / tokens.length).toFixed(1);
+                
+                resultDiv.innerHTML = `
+                    <div class="tokenizer-title">
+                        ${tokenizer.name}
+                        <span class="token-count">${tokens.length} tokens</span>
+                    </div>
+                    <div class="tokens-display">${tokensHtml}</div>
+                    <div class="stats">
+                        <span>Characters: ${text.length}</span>
+                        <span>Avg token length: ${avgTokenLength}</span>
+                        <span>Compression ratio: ${(text.length / tokens.length).toFixed(2)}</span>
+                    </div>
+                `;
+                
+                resultsGrid.appendChild(resultDiv);
+            });
+        }
+
+        function getBestTextColor(backgroundColor) {
+            const hex = backgroundColor.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 155 ? '#000000' : '#ffffff';
+        }
+
+        // Initialize with default text
+        tokenizeText();
+    </script>
+</body>
+</html>

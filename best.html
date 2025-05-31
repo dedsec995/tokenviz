@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenizer Visualization Tool</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(102, 126, 234, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            color: white;
+            font-size: 1.2em;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .input-section {
+            margin-bottom: 30px;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+        }
+        
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tokenizer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .tokenizer-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .tokenizer-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .tokenizer-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .gpt-title { background: linear-gradient(45deg, #ff6b6b, #ffa500); color: white; }
+        .davinci-title { background: linear-gradient(45deg, #4ecdc4, #44a08d); color: white; }
+        .llama-title { background: linear-gradient(45deg, #a8edea, #fed6e3); color: #333; }
+        .bert-title { background: linear-gradient(45deg, #96ceb4, #ffeaa7); color: #333; }
+        
+        .token-output {
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            padding: 15px;
+            background: #fafafa;
+            line-height: 1.8;
+            word-wrap: break-word;
+        }
+        
+        .token {
+            display: inline-block;
+            margin: 2px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .token:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        
+        .token-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        
+        .token:hover .token-tooltip {
+            opacity: 1;
+        }
+        
+        .token-count {
+            margin-top: 10px;
+            font-weight: bold;
+            text-align: center;
+            color: #666;
+        }
+        
+        .stats {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .placeholder {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #ffeaea;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .model-status {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .model-loaded {
+            color: #27ae60;
+        }
+        
+        .model-loading {
+            color: #f39c12;
+        }
+        
+        .model-error {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div>Loading Transformers.js...</div>
+        <div style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">This may take a moment on first load</div>
+    </div>
+
+    <div class="container">
+        <h1>🔤 Real Tokenizer Visualization Tool</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Powered by Hugging Face Transformers.js - Real tokenizers, not mock implementations
+        </p>
+        
+        <div class="input-section">
+            <label for="textInput" class="input-label">Enter text to tokenize:</label>
+            <textarea 
+                id="textInput" 
+                class="text-input" 
+                rows="4" 
+                placeholder="Type your text here and watch how different real tokenizers break it down..."
+            >Hello, world! How are you doing today? This is a sample text to demonstrate real tokenization with transformers.js library.</textarea>
+        </div>
+        
+        <div class="tokenizer-grid">
+            <div class="tokenizer-card">
+                <div class="tokenizer-title gpt-title">GPT-2 Tokenizer</div>
+                <div class="model-status" id="gptStatus">Loading model...</div>
+                <div id="gptOutput" class="token-output">
+                    <div class="placeholder">Loading GPT-2 tokenizer...</div>
+                </div>
+                <div id="gptCount" class="token-count"></div>
+            </div>
+            
+            <div class="tokenizer-card">
+                <div class="tokenizer-title bert-title">BERT Tokenizer</div>
+                <div class="model-status" id="bertStatus">Loading model...</div>
+                <div id="bertOutput" class="token-output">
+                    <div class="placeholder">Loading BERT tokenizer...</div>
+                </div>
+                <div id="bertCount" class="token-count"></div>
+            </div>
+            
+            <div class="tokenizer-card">
+                <div class="tokenizer-title llama-title">T5 Tokenizer</div>
+                <div class="model-status" id="t5Status">Loading model...</div>
+                <div id="t5Output" class="token-output">
+                    <div class="placeholder">Loading T5 tokenizer...</div>
+                </div>
+                <div id="t5Count" class="token-count"></div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <h3>Tokenization Comparison</h3>
+            <div id="statsContent">Loading tokenizers...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { AutoTokenizer } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js';
+        
+        // Color palettes for different tokenizers
+        const colorPalettes = {
+            gpt: [
+                '#ff6b6b', '#ffa500', '#ffeb3b', '#4caf50', '#2196f3',
+                '#9c27b0', '#e91e63', '#ff5722', '#795548', '#607d8b',
+                '#ff9800', '#8bc34a', '#00bcd4', '#673ab7', '#f44336'
+            ],
+            bert: [
+                '#96ceb4', '#ffeaa7', '#fab1a0', '#fd79a8', '#a29bfe',
+                '#6c5ce7', '#00cec9', '#55a3ff', '#fdcb6e', '#e17055',
+                '#74b9ff', '#0984e3', '#00b894', '#fdcb6e', '#e84393'
+            ],
+            t5: [
+                '#a8edea', '#fed6e3', '#d299c2', '#fef9d7', '#dae2f8',
+                '#d6a4a4', '#ffaaa5', '#ff8a95', '#ffc3a0', '#c7ecee',
+                '#ff7675', '#74b9ff', '#00cec9', '#fdcb6e', '#6c5ce7'
+            ]
+        };
+
+        let tokenizers = {};
+        let modelsLoaded = 0;
+        const totalModels = 3;
+
+        function updateLoadingStatus() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (modelsLoaded >= totalModels) {
+                overlay.style.display = 'none';
+                processText(); // Process initial text
+            }
+        }
+
+        function updateModelStatus(modelName, status, isError = false) {
+            const statusElement = document.getElementById(`${modelName}Status`);
+            statusElement.textContent = status;
+            statusElement.className = `model-status ${isError ? 'model-error' : (status.includes('Ready') ? 'model-loaded' : 'model-loading')}`;
+        }
+
+        async function loadTokenizers() {
+            try {
+                // Load GPT-2 tokenizer
+                updateModelStatus('gpt', 'Loading GPT-2...');
+                try {
+                    tokenizers.gpt = await AutoTokenizer.from_pretrained('gpt2');
+                    updateModelStatus('gpt', '✓ GPT-2 Ready');
+                    modelsLoaded++;
+                } catch (error) {
+                    updateModelStatus('gpt', '✗ GPT-2 Failed to load', true);
+                    console.error('GPT-2 tokenizer failed:', error);
+                    modelsLoaded++;
+                }
+
+                // Load BERT tokenizer
+                updateModelStatus('bert', 'Loading BERT...');
+                try {
+                    tokenizers.bert = await AutoTokenizer.from_pretrained('bert-base-uncased');
+                    updateModelStatus('bert', '✓ BERT Ready');
+                    modelsLoaded++;
+                } catch (error) {
+                    updateModelStatus('bert', '✗ BERT Failed to load', true);
+                    console.error('BERT tokenizer failed:', error);
+                    modelsLoaded++;
+                }
+
+                // Load T5 tokenizer
+                updateModelStatus('t5', 'Loading T5...');
+                try {
+                    tokenizers.t5 = await AutoTokenizer.from_pretrained('t5-small');
+                    updateModelStatus('t5', '✓ T5 Ready');
+                    modelsLoaded++;
+                } catch (error) {
+                    updateModelStatus('t5', '✗ T5 Failed to load', true);
+                    console.error('T5 tokenizer failed:', error);
+                    modelsLoaded++;
+                }
+
+                updateLoadingStatus();
+            } catch (error) {
+                console.error('Error loading tokenizers:', error);
+                document.getElementById('loadingOverlay').innerHTML = `
+                    <div style="text-align: center;">
+                        <h2>Error Loading Tokenizers</h2>
+                        <p>There was an issue loading the tokenizers. Please refresh the page to try again.</p>
+                        <p style="font-size: 0.9em; opacity: 0.8;">Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function getTokenColor(index, palette) {
+            return palette[index % palette.length];
+        }
+
+        function getContrastColor(hexColor) {
+            const r = parseInt(hexColor.slice(1, 3), 16);
+            const g = parseInt(hexColor.slice(3, 5), 16);
+            const b = parseInt(hexColor.slice(5, 7), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? '#000000' : '#ffffff';
+        }
+
+        function renderTokens(tokens, tokenIds, outputId, palette, countId, tokenizerName) {
+            const output = document.getElementById(outputId);
+            const count = document.getElementById(countId);
+            
+            if (!tokens || tokens.length === 0) {
+                output.innerHTML = '<div class="placeholder">No tokens generated</div>';
+                count.textContent = '';
+                return;
+            }
+
+            const tokenElements = tokens.map((token, index) => {
+                const color = getContrastColor(getTokenColor(index, palette));
+                const bgColor = getTokenColor(index, palette);
+                const tokenId = tokenIds ? tokenIds[index] : 'N/A';
+                const displayToken = token.replace(/Ġ/g, '▁').replace(/▁/g, ' '); // Handle GPT-2 space token
+                
+                return `<span class="token" style="background-color: ${bgColor}; color: ${color}" title="Token ${index + 1}">
+                    ${escapeHtml(displayToken)}
+                    <div class="token-tooltip">ID: ${tokenId}<br>Index: ${index}</div>
+                </span>`;
+            }).join('');
+
+            output.innerHTML = tokenElements;
+            count.textContent = `Tokens: ${tokens.length}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateStats(gptTokens, bertTokens, t5Tokens) {
+            const statsContent = document.getElementById('statsContent');
+            
+            const gptCount = gptTokens ? gptTokens.length : 0;
+            const bertCount = bertTokens ? bertTokens.length : 0;
+            const t5Count = t5Tokens ? t5Tokens.length : 0;
+
+            if (gptCount === 0 && bertCount === 0 && t5Count === 0) {
+                statsContent.innerHTML = 'Enter text to see comparison statistics';
+                return;
+            }
+
+            const counts = [
+                { name: 'GPT-2', count: gptCount },
+                { name: 'BERT', count: bertCount },
+                { name: 'T5', count: t5Count }
+            ].filter(t => t.count > 0);
+
+            if (counts.length === 0) {
+                statsContent.innerHTML = 'No tokenizers available';
+                return;
+            }
+
+            const minCount = Math.min(...counts.map(t => t.count));
+            const maxCount = Math.max(...counts.map(t => t.count));
+            const mostEfficient = counts.find(t => t.count === minCount);
+            const leastEfficient = counts.find(t => t.count === maxCount);
+
+            const stats = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0;">
+                    ${counts.map(t => `<div><strong>${t.name}:</strong> ${t.count} tokens</div>`).join('')}
+                </div>
+                <div style="margin-top: 15px;">
+                    <div><strong>Most Efficient:</strong> ${mostEfficient.name} (${mostEfficient.count} tokens)</div>
+                    ${minCount !== maxCount ? `<div><strong>Least Efficient:</strong> ${leastEfficient.name} (${leastEfficient.count} tokens)</div>` : ''}
+                    <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                        Different tokenizers use different subword strategies, affecting token count and model efficiency.
+                    </div>
+                </div>
+            `;
+            
+            statsContent.innerHTML = stats;
+        }
+
+        async function processText() {
+            const text = document.getElementById('textInput').value.trim();
+            
+            if (!text) {
+                // Reset to placeholder state
+                ['gpt', 'bert', 't5'].forEach(name => {
+                    if (tokenizers[name]) {
+                        document.getElementById(`${name}Output`).innerHTML = `<div class="placeholder">Enter text above to see ${name.toUpperCase()} tokenization</div>`;
+                        document.getElementById(`${name}Count`).textContent = '';
+                    }
+                });
+                updateStats([], [], []);
+                return;
+            }
+
+            const results = {};
+
+            // Process with each available tokenizer
+            for (const [name, tokenizer] of Object.entries(tokenizers)) {
+                const outputId = name === 'gpt' ? 'gptOutput' : name === 'bert' ? 'bertOutput' : 't5Output';
+                const countId = name === 'gpt' ? 'gptCount' : name === 'bert' ? 'bertCount' : 't5Count';
+                
+                if (tokenizer) {
+                    document.getElementById(outputId).innerHTML = '<div class="loading">Tokenizing...</div>';
+                    
+                    try {
+                        const encoded = await tokenizer.encode(text);
+                        const tokens = encoded.map(id => tokenizer.decode([id], { skip_special_tokens: false }));
+                        const palette = name === 'gpt' ? colorPalettes.gpt : name === 'bert' ? colorPalettes.bert : colorPalettes.t5;
+                        
+                        renderTokens(tokens, encoded, outputId, palette, countId, name);
+                        results[name] = tokens;
+                    } catch (error) {
+                        console.error(`Error tokenizing with ${name}:`, error);
+                        document.getElementById(outputId).innerHTML = `<div class="error">Error tokenizing with ${name.toUpperCase()}: ${error.message}</div>`;
+                        results[name] = [];
+                    }
+                }
+            }
+
+            updateStats(results.gpt, results.bert, results.t5);
+        }
+
+        // Event listeners
+        document.getElementById('textInput').addEventListener('input', processText);
+
+        // Initialize
+        loadTokenizers();
+    </script>
+</body>
+</html>
